@@ -22,6 +22,7 @@ from threestudio.utils.base import BaseModule
 from threestudio.utils.misc import C, cleanup, parse_version
 from threestudio.utils.typing import *
 
+import deepspeed
 
 class ToWeightsDType(nn.Module):
     def __init__(self, module: nn.Module, dtype: torch.dtype):
@@ -56,6 +57,8 @@ class StableDiffusionVSDGuidance(BaseModule):
 
         view_dependent_prompting: bool = True
         camera_condition_type: str = "extrinsics"
+
+        use_deepspeed: bool = True
 
     cfg: Config
 
@@ -93,6 +96,17 @@ class StableDiffusionVSDGuidance(BaseModule):
             self.cfg.pretrained_model_name_or_path,
             **pipe_kwargs,
         ).to(self.device)
+        if self.cfg.use_deepspeed :
+            ds_engine = deepspeed.init_inference(
+                    model=getattr(pipe,"model", pipe),      # Transformers models
+                    mp_size=1,        # Number of GPU
+                    dtype=torch.float16, # dtype of the weights (fp16)
+                    replace_method="auto", # Lets DS autmatically identify the layer to replace
+                    replace_with_kernel_inject=False, # replace the model with the kernel injector
+                    )
+            pipe = ds_engine.module
+            threestudio.info(f"init deepspeed")
+
         if (
             self.cfg.pretrained_model_name_or_path
             == self.cfg.pretrained_model_name_or_path_lora
@@ -108,6 +122,17 @@ class StableDiffusionVSDGuidance(BaseModule):
             del pipe_lora.vae
             cleanup()
             pipe_lora.vae = pipe.vae
+            if self.cfg.use_deepspeed :
+                ds_engine = deepspeed.init_inference(
+                    model=getattr(pipe_lora,"model", pipe_lora),      # Transformers models
+                    mp_size=1,        # Number of GPU
+                    dtype=torch.float16, # dtype of the weights (fp16)
+                    replace_method="auto", # Lets DS autmatically identify the layer to replace
+                    replace_with_kernel_inject=False, # replace the model with the kernel injector
+                )
+                pipe_lora = ds_engine.module
+                threestudio.info(f"init deepspeed")
+
         self.submodules = SubModules(pipe=pipe, pipe_lora=pipe_lora)
 
         if self.cfg.enable_memory_efficient_attention:

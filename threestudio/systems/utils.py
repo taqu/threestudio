@@ -48,6 +48,9 @@ def parse_optimizer(config, model):
         from threestudio.systems import optimizers
 
         optim = getattr(optimizers, config.name)(params, **config.args)
+    elif config.name in ["DeepSpeedCPUAdam"]:
+        import deepspeed
+        optim = getattr(deepspeed.ops.adam, config.name)(params, **config.args)
     else:
         optim = getattr(torch.optim, config.name)(params, **config.args)
     return optim
