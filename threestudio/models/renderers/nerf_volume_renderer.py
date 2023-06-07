@@ -241,6 +241,7 @@ class NeRFVolumeRenderer(VolumeRenderer):
                 # approximate for 1 - torch.exp(-density * self.render_step_size) based on taylor series
                 return density * self.render_step_size
 
+            #threestudio.info('self.estimator.occs:' + str(self.estimator.occs.dtype))
             if self.training and not on_load_weights:
                 self.estimator.update_every_n_steps(
                     step=global_step, occ_eval_fn=occ_eval_fn

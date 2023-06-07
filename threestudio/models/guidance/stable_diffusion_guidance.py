@@ -12,6 +12,7 @@ from threestudio.utils.base import BaseObject
 from threestudio.utils.misc import C, parse_version
 from threestudio.utils.typing import *
 
+import deepspeed
 
 @threestudio.register("stable-diffusion-guidance")
 class StableDiffusionGuidance(BaseObject):
@@ -40,6 +41,8 @@ class StableDiffusionGuidance(BaseObject):
 
         view_dependent_prompting: bool = True
 
+        use_deepspeed: bool = True
+
     cfg: Config
 
     def configure(self) -> None:
@@ -48,6 +51,9 @@ class StableDiffusionGuidance(BaseObject):
         self.weights_dtype = (
             torch.float16 if self.cfg.half_precision_weights else torch.float32
         )
+        self.variant = (
+            'fp16' if self.cfg.half_precision_weights else 'fp32'
+        )
 
         pipe_kwargs = {
             "tokenizer": None,
@@ -55,11 +61,22 @@ class StableDiffusionGuidance(BaseObject):
             "feature_extractor": None,
             "requires_safety_checker": False,
             "torch_dtype": self.weights_dtype,
+            "variant": self.variant,
         }
         self.pipe = StableDiffusionPipeline.from_pretrained(
             self.cfg.pretrained_model_name_or_path,
             **pipe_kwargs,
         ).to(self.device)
+        if self.cfg.use_deepspeed :
+            ds_engine = deepspeed.init_inference(
+                    model=getattr(self.pipe,"model", self.pipe),      # Transformers models
+                    mp_size=1,        # Number of GPU
+                    dtype=torch.float16, # dtype of the weights (fp16)
+                    replace_method="auto", # Lets DS autmatically identify the layer to replace
+                    replace_with_kernel_inject=False, # replace the model with the kernel injector
+                    )
+            self.pipe = ds_engine.module
+            threestudio.info(f"init deepspeed")
 
         if self.cfg.enable_memory_efficient_attention:
             if parse_version(torch.__version__) >= parse_version("2"):

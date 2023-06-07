@@ -27,6 +27,9 @@ class ProlificDreamer(BaseLift3DSystem):
         inherit_coarse_texture: bool = True
         visualize_samples: bool = False
 
+        token_merging: bool = False
+        token_merging_params: Optional[dict] = field(default_factory=dict)
+
     cfg: Config
 
     def configure(self) -> None:

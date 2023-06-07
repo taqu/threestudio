@@ -68,6 +68,9 @@ class StableDiffusionVSDGuidance(BaseModule):
         self.weights_dtype = (
             torch.float16 if self.cfg.half_precision_weights else torch.float32
         )
+        self.variant = (
+            'fp16' if self.cfg.half_precision_weights else 'fp32'
+        )
 
         pipe_kwargs = {
             "tokenizer": None,
@@ -76,6 +79,7 @@ class StableDiffusionVSDGuidance(BaseModule):
             "feature_extractor": None,
             "requires_safety_checker": False,
             "torch_dtype": self.weights_dtype,
+            "variant": self.variant,
         }
 
         pipe_lora_kwargs = {
