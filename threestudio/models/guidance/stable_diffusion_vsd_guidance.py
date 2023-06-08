@@ -58,6 +58,8 @@ class StableDiffusionVSDGuidance(BaseModule):
         view_dependent_prompting: bool = True
         camera_condition_type: str = "extrinsics"
 
+        token_merging: bool = False
+
         use_deepspeed: bool = True
 
     cfg: Config
@@ -170,6 +172,12 @@ class StableDiffusionVSDGuidance(BaseModule):
             p.requires_grad_(False)
         for p in self.unet_lora.parameters():
             p.requires_grad_(False)
+
+        if self.cfg.token_merging:
+            import tomesd
+            tomesd.apply_patch(self.unet, ratio=0.5)
+            if False == self.single_model:
+                tomesd.apply_patch(self.unet_lora, ratio=0.5)
 
         # FIXME: hard-coded dims
         self.camera_embedding = ToWeightsDType(

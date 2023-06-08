@@ -65,6 +65,7 @@ class NeRFVolumeRenderer(VolumeRenderer):
         )
         n_rays = rays_o_flatten.shape[0]
 
+        far_plane = 1.0e10
         if not self.cfg.grid_prune:
             with torch.no_grad():
                 ray_indices, t_starts_, t_ends_ = self.estimator.sampling(
@@ -76,6 +77,7 @@ class NeRFVolumeRenderer(VolumeRenderer):
                     stratified=self.randomized,
                     cone_angle=0.0,
                     early_stop_eps=0,
+                    far_plane=far_plane
                 )
         else:
             with torch.no_grad():
@@ -87,6 +89,7 @@ class NeRFVolumeRenderer(VolumeRenderer):
                     alpha_thre=0.0,
                     stratified=self.randomized,
                     cone_angle=0.0,
+                    far_plane=far_plane
                 )
 
         ray_indices = ray_indices.long()
@@ -240,6 +243,7 @@ class NeRFVolumeRenderer(VolumeRenderer):
                 density = self.geometry.forward_density(x)
                 # approximate for 1 - torch.exp(-density * self.render_step_size) based on taylor series
                 return density * self.render_step_size
+                # return density.to(torch.float16) * self.render_step_size
 
             #threestudio.info('self.estimator.occs:' + str(self.estimator.occs.dtype))
             if self.training and not on_load_weights:
